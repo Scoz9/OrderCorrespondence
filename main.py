@@ -32,14 +32,52 @@ def extract_info_after_keyword(text, keyword):
 def extract_product_details(text):
     total_order_index = text.find("Totale ordine")
     if total_order_index != -1:
+        
+        # Trova la riga dopo "Totale ordine"
         line_start = text.find("\n", total_order_index) + 1
         line_end = text.find("\n", line_start)
-        # Skipping one more line to get the next line after "Totale ordine"
-        line_start = text.find("\n", line_end) + 1
-        line_end = text.find("\n", line_start)
-        info = text[line_start:line_end].strip()
+        
+        # Trova la riga una linee dopo "Totale ordine" e prendi tutte le linee fino a quando non trovi SKU 
+        next_line_start = text.find("\n", line_end) + 1
+        while True:
+            next_line_end = text.find("\n", next_line_start)
+            line = text[next_line_start:next_line_end].strip()
+            if line.startswith("SKU"):
+                break
+            next_line_start = next_line_end + 1
+        
+        # Estrai e pulisci l'informazione
+        info = text[line_start:next_line_start].strip()
+        
+        info = info[7:].strip()  # Rimuovi i primi 7 caratteri
+        info = info.replace("\n", " ") # Rimuovi tutti i caratteri "\n" dalla stringa
+        info = info.replace("-", "") 
+        info = orderDistinction(info)
         return info
     return None
+
+def orderDistinction(product_name):
+    max_length = 40
+    # Trova la posizione della parentesi tonda aperta nella stringa
+    open_parenthesis_index = product_name.find("(")
+    
+    if open_parenthesis_index != -1:
+        # Estrai il contenuto tra le parentesi tonde
+        content_in_parentheses = product_name[open_parenthesis_index:]
+        
+        # Lunghezza della parte di stringa prima delle parentesi tonde
+        length_before_parentheses = open_parenthesis_index
+        
+        # Lunghezza massima consentita per la parte di stringa prima delle parentesi tonde
+        max_length_before_parentheses = max_length - len(content_in_parentheses)
+        
+        # Taglia la parte di stringa prima delle parentesi tonde se necessario
+        if length_before_parentheses > max_length_before_parentheses:
+            product_name = product_name[:max_length_before_parentheses]
+        return product_name + content_in_parentheses
+    else:
+        # Se non ci sono parentesi tonde nella stringa, restituisci la stringa stessa
+        return product_name[:max_length]
 
 def extract_product_quantity(text):
     total_order_index = text.find("Quantità")
@@ -101,7 +139,8 @@ def add_product_name_to_pdf(pdf_path, listOrders):
                     y = 510  # Offset for the product name
                 
                 if order[2] != "1": 
-                   page.insert_text((x, y), text=order[1] + " --> x" + str(order[2]), fontsize=10, rotate=180, render_mode=0)
+                   page.insert_text((x, y), text=order[1], fontsize=10, rotate=180, render_mode=0)
+                   page.insert_text((x-200, y), text=" --> x" + str(order[2]), fontsize=15, rotate=180, render_mode=0)
                 else:
                     page.insert_text((x, y), text=order[1], fontsize=10, rotate=180, render_mode=0)
                 break
