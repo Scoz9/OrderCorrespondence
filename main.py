@@ -1,4 +1,74 @@
 import fitz  # PyMuPDF
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import os
+
+class Gui:
+    def __init__(self, master):
+        self.master = master
+        master.title("PDF Analyzer")
+
+        self.label1 = tk.Label(master, text="PDF 1:")
+        self.label1.grid(row=0, column=0)
+
+        self.pdf1_entry = tk.Entry(master, width=50)
+        self.pdf1_entry.grid(row=0, column=1)
+
+        self.browse_button1 = tk.Button(master, text="Browse", command=self.browse_pdf1)
+        self.browse_button1.grid(row=0, column=2)
+
+        self.label2 = tk.Label(master, text="PDF 2:")
+        self.label2.grid(row=1, column=0)
+
+        self.pdf2_entry = tk.Entry(master, width=50)
+        self.pdf2_entry.grid(row=1, column=1)
+
+        self.browse_button2 = tk.Button(master, text="Browse", command=self.browse_pdf2)
+        self.browse_button2.grid(row=1, column=2)
+
+        self.label3 = tk.Label(master, text="Output Path:")
+        self.label3.grid(row=2, column=0)
+
+        self.output_path_entry = tk.Entry(master, width=50)
+        self.output_path_entry.grid(row=2, column=1)
+
+        self.browse_button3 = tk.Button(master, text="Browse", command=self.browse_output_path)
+        self.browse_button3.grid(row=2, column=2)
+
+        self.elaborate_button = tk.Button(master, text="Elaborate", command=self.elaborate_pdfs)
+        self.elaborate_button.grid(row=3, column=1)
+
+    def browse_pdf1(self):
+        filename = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
+        self.pdf1_entry.delete(0, tk.END)
+        self.pdf1_entry.insert(0, filename)
+
+    def browse_pdf2(self):
+        filename = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
+        self.pdf2_entry.delete(0, tk.END)
+        self.pdf2_entry.insert(0, filename)
+
+    def browse_output_path(self):
+        path = filedialog.askdirectory()
+        self.output_path_entry.delete(0, tk.END)
+        self.output_path_entry.insert(0, path)
+
+    def elaborate_pdfs(self):
+        pdf1_path = self.pdf1_entry.get()
+        pdf2_path = self.pdf2_entry.get()
+        output_path = self.output_path_entry.get()
+        
+        if not (pdf1_path and pdf2_path and output_path):
+            messagebox.showerror("Error", "Please fill in all fields.")
+            return
+
+        # Estrai le informazioni da "Spedire a:" e "Dettagli prodotto" dal PDF1
+        listOrders = extract_text_from_pdf(pdf1_path)
+
+        # Aggiungi il nome del prodotto al PDF2 accanto allo shipping address
+        add_product_name_to_pdf(pdf2_path, listOrders)
+
+        messagebox.showinfo("Success", f"PDFs merged and saved to {output_path}" + "pdf_result.pdf") 
 
 def extract_text_from_pdf(pdf_path):
     all_elements = []
@@ -140,12 +210,13 @@ def add_product_name_to_pdf(pdf_path, listOrders):
                 
                 if order[2] != "1": 
                    page.insert_text((x, y), text=order[1], fontsize=10, rotate=180, render_mode=0)
-                   page.insert_text((x-200, y), text=" --> x" + str(order[2]), fontsize=15, rotate=180, render_mode=0)
+                   page.insert_text((x-185, y), text=" --> x" + str(order[2]), fontsize=15, rotate=180, render_mode=0)
                 else:
                     page.insert_text((x, y), text=order[1], fontsize=10, rotate=180, render_mode=0)
                 break
+            
     # Save the modified PDF
-    pdf_document.save("pdf2_modified.pdf")
+    pdf_document.save("pdf_result.pdf")
     pdf_document.close()
     
 def find_shipping_address_coordinates(page, shipping_address):
@@ -162,12 +233,22 @@ def find_shipping_address_coordinates(page, shipping_address):
     else:
         return None, None
 
-# Path del file PDF da cui estrarre le informazioni
-pdf_path_1 = 'pdf1.pdf'
-pdf_path_2 = 'pdf2.pdf'
 
-# Estrai le informazioni da "Spedire a:" e "Dettagli prodotto" dal PDF1
-listOrders = extract_text_from_pdf(pdf_path_1)
 
-# Aggiungi il nome del prodotto al PDF2 accanto allo shipping address
-add_product_name_to_pdf(pdf_path_2, listOrders) 
+def main():
+    root = tk.Tk()
+    gui = Gui(root)
+    root.mainloop() 
+
+    """ # Path del file PDF da cui estrarre le informazioni
+    pdf_path_1 = 'pdf1.pdf'
+    pdf_path_2 = 'pdf2.pdf' """
+
+    """ # Estrai le informazioni da "Spedire a:" e "Dettagli prodotto" dal PDF1
+    listOrders = extract_text_from_pdf(pdf_path_1)
+
+    # Aggiungi il nome del prodotto al PDF2 accanto allo shipping address
+    add_product_name_to_pdf(pdf_path_2, listOrders)  """
+
+if __name__ == "__main__":
+    main()
