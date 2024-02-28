@@ -2,6 +2,7 @@ import fitz  # PyMuPDF
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import os
+import time
 
 class Gui:
     def __init__(self, master):
@@ -37,6 +38,9 @@ class Gui:
 
         self.elaborate_button = tk.Button(master, text="Elaborate", command=self.elaborate_pdfs)
         self.elaborate_button.grid(row=3, column=1)
+        
+        self.time_label = tk.Label(master, text="Time: 0:00")
+        self.time_label.grid(row=4, column=1)
 
     def browse_pdf1(self):
         filename = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
@@ -52,8 +56,10 @@ class Gui:
         path = filedialog.askdirectory()
         self.output_path_entry.delete(0, tk.END)
         self.output_path_entry.insert(0, path)
-
+        
     def elaborate_pdfs(self):
+        start_time = time.time()
+        
         pdf1_path = self.pdf1_entry.get()
         pdf2_path = self.pdf2_entry.get()
         output_path = self.output_path_entry.get()
@@ -68,8 +74,13 @@ class Gui:
         # Aggiungi il nome del prodotto al PDF2 accanto allo shipping address
         add_product_name_to_pdf(pdf2_path, listOrders)
 
+        elapsed_time = time.time() - start_time
+        minutes = int(elapsed_time / 60)
+        seconds = int(elapsed_time % 60)
+        self.time_label.config(text="Time: {:02d}:{:02d}".format(minutes, seconds))
+        
         messagebox.showinfo("Success", f"PDFs merged and saved to {output_path}" + "pdf_result.pdf") 
-
+        
 def extract_text_from_pdf(pdf_path):
     all_elements = []
     with fitz.open(pdf_path) as pdf_file:
