@@ -5,6 +5,11 @@ import os
 import time
 import re
 
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer
+
 class Gui:
     def __init__(self):
         pass
@@ -35,16 +40,16 @@ class Gui:
         )
         self.browse_button2.grid(row=1, column=2)
 
-        """ self.label3 = tk.Label(self.root, text="Output Path:")
+        self.label3 = tk.Label(self.root, text="Output Path:")
         self.label3.grid(row=2, column=0)
 
-         self.output_path_entry = tk.Entry(self.root, width=50)
+        self.output_path_entry = tk.Entry(self.root, width=50)
         self.output_path_entry.grid(row=2, column=1)
 
         self.browse_button3 = tk.Button(
             self.root, text="Browse", command=self.browse_output_path
         )
-        self.browse_button3.grid(row=2, column=2) """
+        self.browse_button3.grid(row=2, column=2)
 
         self.elaborate_button = tk.Button(
             self.root, text="Elaborate", command=self.elaborate_pdfs
@@ -66,15 +71,15 @@ class Gui:
         self.pdf2_entry.delete(0, tk.END)
         self.pdf2_entry.insert(0, filename)
 
-    """ def browse_output_path(self):
+    def browse_output_path(self):
         path = filedialog.askdirectory()
         self.output_path_entry.delete(0, tk.END)
-        self.output_path_entry.insert(0, path) """
+        self.output_path_entry.insert(0, path)
 
     def elaborate_pdfs(self):
         pdf1_path = self.pdf1_entry.get()
         pdf2_path = self.pdf2_entry.get()
-        """ output_path = self.output_path_entry.get() """
+        output_path = self.output_path_entry.get()
 
         """ and output_path """
         if not (pdf1_path and pdf2_path):
@@ -87,7 +92,7 @@ class Gui:
         listOrders = extract_text_from_pdf(pdf1_path)
 
         # Aggiungi il nome del prodotto al PDF2 accanto allo shipping address
-        add_product_name_to_pdf(pdf2_path, listOrders)
+        add_product_name_to_pdf(pdf2_path, listOrders,output_path)
 
         elapsed_time = time.time() - start_time
         minutes = int(elapsed_time / 60)
@@ -159,7 +164,7 @@ def orderDistinction(product_name):
     return product_name[:max_length]
 
 
-def add_product_name_to_pdf(pdf_path, listOrders):
+def add_product_name_to_pdf(pdf_path, listOrders, output_path):
     singleProducts = []
     multiProducts = []
     ordersMultiProduct = []
@@ -202,7 +207,8 @@ def add_product_name_to_pdf(pdf_path, listOrders):
                 singleProducts.append(order)
 
         singleProducts, multiProducts = group_same_products(singleProducts, multiProducts)
-
+        
+        create_pdf_with_tables(singleProducts, multiProducts, ordersMultiProduct, output_path)
         # Save the modified PDF
         pdf_document.saveIncr()
 
@@ -236,6 +242,49 @@ def group_same_products(singleProducts, multiProducts):
     multiProducts = [('', product_name, f"(x{quantity})") if count == 1 else (f"(x{count})", product_name, f"(x{quantity})") for (product_name, quantity), count in multipleProdDict.items()]
 
     return singleProducts, multiProducts
+
+def create_pdf_with_tables(single_products, multi_products, orders_multi_product, output_path):
+    doc = SimpleDocTemplate(output_path + '/tabelle.pdf', pagesize=letter)
+    elements = []
+
+    # Creazione delle tabelle per i singoli prodotti, prodotti multipli e ordini multi-prodotto
+    single_table_data = [['Single-Packaging', 'Quantità']]
+    for order in single_products:
+        single_table_data.append([order[0], order[1]])
+    single_table = create_table(single_table_data)
+    elements.append(single_table)
+    elements.append(Spacer(1, 0.5 * inch))
+
+    multi_table_data = [['Multi-Packaging', 'Quantità', 'Unità']]
+    for order in multi_products:
+        multi_table_data.append([order[1], order[2], order[0]])
+    multi_table = create_table(multi_table_data)
+    elements.append(multi_table)
+    elements.append(Spacer(1, 0.5 * inch))
+
+    orders_multi_table_data = [['Orders-Multi-Product', 'Quantità']]
+    for order in orders_multi_product:
+        for item in order:
+            orders_multi_table_data.append([item[1], item[2]])
+        orders_multi_table_data.append(['Pacco'])
+    orders_multi_table = create_table(orders_multi_table_data)
+    elements.append(orders_multi_table)
+
+    # Salvataggio del PDF
+    doc.build(elements)
+
+# Funzione per creare una tabella da una lista di dati
+def create_table(data):
+    table = Table(data)
+    style = TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black)])
+    table.setStyle(style)
+    return table
 
 def main():
     guiObj = Gui()
