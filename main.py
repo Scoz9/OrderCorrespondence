@@ -12,7 +12,9 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer
 
 class Gui:
     def __init__(self):
-        pass
+        self.pdf1_path = ""
+        self.pdf2_path = ""
+        self.output_path = ""
 
     def avvia_interfaccia(self):
         self.root = tk.Tk()
@@ -40,7 +42,7 @@ class Gui:
         )
         self.browse_button2.grid(row=1, column=2)
 
-        self.label3 = tk.Label(self.root, text="Output Path:")
+        """ self.label3 = tk.Label(self.root, text="Output Path:")
         self.label3.grid(row=2, column=0)
 
         self.output_path_entry = tk.Entry(self.root, width=50)
@@ -49,12 +51,23 @@ class Gui:
         self.browse_button3 = tk.Button(
             self.root, text="Browse", command=self.browse_output_path
         )
-        self.browse_button3.grid(row=2, column=2)
+        self.browse_button3.grid(row=2, column=2) """
+        
+        self.generatePdf = tk.Button(
+            self.root, text="generate pdf"
+        )
+        self.generatePdf.grid(row=3, column=1)
+
+        self.button_frame = tk.Frame(self.root)
+        self.button_frame.grid(row=3, column=0, columnspan=3)
+        
+        self.generate_button = tk.Button(
+        self.button_frame, text="PDF", command=self.generate_pdf)
+        self.generate_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.elaborate_button = tk.Button(
-            self.root, text="Elaborate", command=self.elaborate_pdfs
-        )
-        self.elaborate_button.grid(row=3, column=1)
+        self.button_frame, text="Elaborate", command=self.elaborate_pdfs)
+        self.elaborate_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.time_label = tk.Label(self.root, text="Time: 0:00")
         self.time_label.grid(row=4, column=1)
@@ -65,42 +78,63 @@ class Gui:
         filename = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
         self.pdf1_entry.delete(0, tk.END)
         self.pdf1_entry.insert(0, filename)
+        self.pdf1_path = self.pdf1_entry.get()
+        self.output_path = os.path.dirname(self.pdf1_path) + '/'
 
     def browse_pdf2(self):
         filename = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
         self.pdf2_entry.delete(0, tk.END)
         self.pdf2_entry.insert(0, filename)
+        self.pdf2_path = self.pdf2_entry.get()
 
-    def browse_output_path(self):
+    """ def browse_output_path(self):
         path = filedialog.askdirectory()
         self.output_path_entry.delete(0, tk.END)
         self.output_path_entry.insert(0, path)
+        self.output_path = self.output_path_entry.get() + '/' """
 
     def elaborate_pdfs(self):
-        pdf1_path = self.pdf1_entry.get()
-        pdf2_path = self.pdf2_entry.get()
-        output_path = self.output_path_entry.get()
-
-        """ and output_path """
-        if not (pdf1_path and pdf2_path):
+        if not (self.pdf1_path and self.pdf2_path):
             messagebox.showerror("Error", "Please fill in all fields.")
             return
 
         start_time = time.time()
             
-        # Estrai le informazioni da "Spedire a:" e "Dettagli prodotto" dal PDF1
-        listOrders = extract_text_from_pdf(pdf1_path)
-
+        # Estrai le informazioni da "Spedire a:", "Dettagli prodotto" e "Quantita'" dal PDF1
+        listOrders = extract_text_from_pdf(self.pdf1_path)
+        
         # Aggiungi il nome del prodotto al PDF2 accanto allo shipping address
-        add_product_name_to_pdf(pdf2_path, listOrders,output_path)
-
+        add_product_name_to_pdf(self.pdf2_path, listOrders)
+        
+        #Distizione ordini in singleProducts, multiProducts e ordersMultiProducts
+        singleProducts, multiProducts, ordersMultiProduct = categorize_orders(listOrders)
+        
+        #Raggruppamento singleProducts con stesso nome sommandone le quantita' e raggruppamento multiProducts 
+        #con stesso nome e stessa quantita' contando il numero di unita'
+        singleProducts, multiProducts = group_same_products(singleProducts, multiProducts)
+        create_pdf_with_tables(singleProducts, multiProducts, ordersMultiProduct, self.output_path)
+        
         elapsed_time = time.time() - start_time
         minutes = int(elapsed_time / 60)
         seconds = int(elapsed_time % 60)
         self.time_label.config(text="Time: {:02d}:{:02d}".format(minutes, seconds))
+
+        messagebox.showinfo("Success", f"PDFs saved to {self.output_path}") 
         
-        messagebox.showinfo("Success", f"PDFs merged and saved to {pdf2_path}") 
+    def generate_pdf(self):
+        if not (self.pdf1_path):
+            messagebox.showerror("Error", "Please fill in PDF1 field.")
+            return
+
+        # Estrai le informazioni da "Spedire a:" e "Dettagli prodotto" dal PDF1
+        listOrders = extract_text_from_pdf(self.pdf1_path)
+        singleProducts, multiProducts, ordersMultiProduct = categorize_orders(listOrders)
+        singleProducts, multiProducts = group_same_products(singleProducts, multiProducts)
         
+        create_pdf_with_tables(singleProducts, multiProducts, ordersMultiProduct, self.output_path)
+            
+        messagebox.showinfo("Success", f"Tables created and saved to {self.output_path}")
+
 def extract_text_from_pdf(pdf_path):
     all_elements = []
     with fitz.open(pdf_path) as pdf_file:
@@ -112,25 +146,50 @@ def extract_text_from_pdf(pdf_path):
             all_elements.append(product_details)
     return all_elements
 
+def extract_shipping_address(text):
+    pattern = r"Spedire a:\n(.*?)(?=\n)"
+    match_shipping_address = re.search(pattern, text)
+    if match_shipping_address:
+        return match_shipping_address.group(1).strip()[:22].upper()
+    else:
+        return None
+    
+def extract_product_name(text, position):
+    if position == "first":
+        pattern = r"Totale ordine\n\d+\n(.*?)(?=\nSKU:)"
+    else:
+        pattern = r'Tot\. articolo\n(?:.*\n)*[0-9]+\n(.*?)(?=SKU:)'
+        
+    match_nome_prod = re.search(pattern, text, re.DOTALL)
+    if match_nome_prod:
+        return orderDistinction(re.sub(r"[\s-]+", " ", match_nome_prod.group(1))[5:]) 
+    else:
+        return None
+
+def extract_product_quantity(text, position):
+    if position == "first": 
+        pattern = r"Totale ordine\n(\d+)\n"
+    else:
+        pattern = r'Tot\. articolo.*\n(?P<quantity>\d+)\n.*\nSKU'
+        
+    match_prod_quantity = re.search(pattern, text, re.DOTALL)
+    if match_prod_quantity:
+        return match_prod_quantity.group(1).strip()
+    else:
+        return None
+    
 def extract_product_details(text):
     product = []
 
-    match_shipping_address = re.search(r"Spedire a:\n(.*?)(?=\n)", text)
-    shipping_address = match_shipping_address.group(1).strip()[:22].upper()
+    shipping_address = extract_shipping_address(text)
+    nome_prod1 = extract_product_name(text, "first")
+    quantity_prod1 = extract_product_quantity(text, "first")
+    quantity_prod2 = extract_product_quantity(text, "second")
+    
+    if quantity_prod2: 
+        nome_prod2 = extract_product_name(text, "second")
 
-    match_nome_prod1 = re.search(r"Totale ordine\n\d+\n(.*?)(?=\nSKU:)", text, re.DOTALL)
-    nome_prod1 = orderDistinction(re.sub(r"[\s-]+", " ", match_nome_prod1.group(1))[5:]) 
-
-    match_quantity_prod1 = re.search(r"Totale ordine\n(\d+)\n", text)
-    quantity_prod1 = match_quantity_prod1.group(1).strip()
-
-    match_quantity_prod2 = re.search(r'Tot\. articolo.*\n(?P<quantity>\d+)\n.*\nSKU', text, re.DOTALL)
-    if match_quantity_prod2:
-        quantity_prod2 = match_quantity_prod2.group(1).strip()
-        match_nome_prod2 = re.search(r'Tot\. articolo\n(?:.*\n)*[0-9]+\n(.*?)(?=SKU:)', text, re.DOTALL)
-        nome_prod2 = orderDistinction(re.sub(r"[\s-]+", " ", match_nome_prod2.group(1))[5:])
-
-    if not match_quantity_prod2:
+    if not quantity_prod2:
         product.append((shipping_address, nome_prod1, quantity_prod1))
         return product
 
@@ -138,6 +197,21 @@ def extract_product_details(text):
     product.append((shipping_address, nome_prod2, quantity_prod2))
 
     return product
+
+def categorize_orders(listOrders):
+    singleProducts = []
+    multiProducts = []
+    ordersMultiProduct = []
+    
+    for order in listOrders:
+        if len(order) > 1:
+            ordersMultiProduct.append(order)
+        elif order[0][2] != "1": 
+            multiProducts.append(order)
+        else:
+            singleProducts.append(order)
+
+    return singleProducts, multiProducts, ordersMultiProduct
 
 def orderDistinction(product_name):
     max_length = 40
@@ -164,11 +238,7 @@ def orderDistinction(product_name):
     return product_name[:max_length]
 
 
-def add_product_name_to_pdf(pdf_path, listOrders, output_path):
-    singleProducts = []
-    multiProducts = []
-    ordersMultiProduct = []
-
+def add_product_name_to_pdf(pdf_path, listOrders):
     with fitz.open(pdf_path) as pdf_document:
         # Pre-calculate all page texts
         page_texts = [re.sub(r'\s+', ' ', page.get_text()) for page in pdf_document]
@@ -192,7 +262,6 @@ def add_product_name_to_pdf(pdf_path, listOrders, output_path):
             y_offset = 90 if 0 < rect[1] < 415 else 510
 
             if len(order) > 1:
-                ordersMultiProduct.append(order)
                 for item in order:
                     page.insert_text((x_offset, y_offset), text=item[1], fontsize=10, rotate=180, render_mode=0)
                     if item[2] != "1":
@@ -201,14 +270,9 @@ def add_product_name_to_pdf(pdf_path, listOrders, output_path):
             elif order[0][2] != "1": 
                 page.insert_text((x_offset, y_offset), text=order[0][1], fontsize=10, rotate=180, render_mode=0)
                 page.insert_text((x_offset - 185, y_offset), text=" --> x" + str(order[0][2]), fontsize=15, rotate=180, render_mode=0)
-                multiProducts.append(order)
             else:
                 page.insert_text((x_offset, y_offset), text=order[0][1], fontsize=10, rotate=180, render_mode=0)
-                singleProducts.append(order)
 
-        singleProducts, multiProducts = group_same_products(singleProducts, multiProducts)
-        
-        create_pdf_with_tables(singleProducts, multiProducts, ordersMultiProduct, output_path)
         # Save the modified PDF
         pdf_document.saveIncr()
 
@@ -239,12 +303,12 @@ def group_same_products(singleProducts, multiProducts):
     singleProducts = [(productName, str(quantity)) for productName, quantity in singleProdDict.items()]
 
     # Costruisci la lista di prodotti multipli raggruppati
-    multiProducts = [('', product_name, f"(x{quantity})") if count == 1 else (f"(x{count})", product_name, f"(x{quantity})") for (product_name, quantity), count in multipleProdDict.items()]
+    multiProducts = [('', product_name, f"x{quantity}") if count == 1 else (f"x{count}", product_name, f"x{quantity}") for (product_name, quantity), count in multipleProdDict.items()]
 
     return singleProducts, multiProducts
 
 def create_pdf_with_tables(single_products, multi_products, orders_multi_product, output_path):
-    doc = SimpleDocTemplate(output_path + '/tabelle.pdf', pagesize=letter)
+    doc = SimpleDocTemplate(output_path + 'tabelle.pdf', pagesize=letter)
     elements = []
 
     # Creazione delle tabelle per i singoli prodotti, prodotti multipli e ordini multi-prodotto
