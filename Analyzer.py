@@ -7,70 +7,39 @@ import fitz  # PyMuPDF
 import re
 
 class Analyzer:
-    def __init__(self):
-        pass
-    
-    def elaborate_pdfs(self, pdf1_path, pdf2_path, output_path):
-        listOrders = self.extract_text_from_pdf(pdf1_path)
+    def __init__(self, pdf1_path):
+        self.pdf1_path = pdf1_path
+        self.listOrders = self.extract_text_from_pdf(self.pdf1_path)
+        self.singleProducts, self.multiProducts, self.ordersMultiProduct = self.categorize_orders(
+            self.listOrders
+        )
+        self.singleProducts, self.multiProducts = self.group_same_products(
+            self.singleProducts, self.multiProducts
+        )
         
-        self.add_product_name_to_pdf(pdf2_path, listOrders)
-        
-        singleProducts, multiProducts, ordersMultiProduct = self.categorize_orders(listOrders)
-        singleProducts, multiProducts = self.group_same_products(singleProducts, multiProducts)
-        
-        self.create_pdf_with_tables(singleProducts, multiProducts, ordersMultiProduct, output_path)
-        
-    def generate_pdf(self, pdf1_path, output_path):
-        listOrders = self.extract_text_from_pdf(pdf1_path)
-        
-        singleProducts, multiProducts, ordersMultiProduct = self.categorize_orders(listOrders)
-        singleProducts, multiProducts = self.group_same_products(singleProducts, multiProducts)
-        
-        self.create_pdf_with_tables(singleProducts, multiProducts, ordersMultiProduct, output_path)
-        
-    def extract_text_from_pdf(self, pdf_path):
+    def generate_pdf(self, output_path):
+        self.create_pdf_with_tables(
+            self.singleProducts, self.multiProducts, self.ordersMultiProduct, output_path
+        )
+
+    def elaborate_pdfs(self, pdf2_path, output_path):
+        self.add_product_name_to_pdf(pdf2_path, self.listOrders)
+
+        self.create_pdf_with_tables(
+            self.singleProducts, self.multiProducts, self.ordersMultiProduct, output_path
+        )
+
+    def extract_text_from_pdf(self, pdf1_path):
         all_elements = []
-        with fitz.open(pdf_path) as pdf_file:
+        with fitz.open(pdf1_path) as pdf_file:
             for page_num in range(len(pdf_file)):
                 page = pdf_file.load_page(page_num)
                 page_text = page.get_text()
-                
-                product_details = self.extract_product_details(page_text)           
+
+                product_details = self.extract_product_details(page_text)
                 all_elements.append(product_details)
         return all_elements
-
-    def extract_shipping_address(self, text):
-        pattern = r"Spedire a:\n(.*?)(?=\n)"
-        match_shipping_address = re.search(pattern, text)
-        if match_shipping_address:
-            return match_shipping_address.group(1).strip()[:22].upper()
-        else:
-            return None
-        
-    def extract_product_name(self, text, position):
-        if position == "first":
-            pattern = r"Totale ordine\n\d+\n(.*?)(?=\nSKU:)"
-        else:
-            pattern = r'Tot\. articolo\n(?:.*\n)*[0-9]+\n(.*?)(?=SKU:)'
-            
-        match_nome_prod = re.search(pattern, text, re.DOTALL)
-        if match_nome_prod:
-            return self.orderDistinction(re.sub(r"[\s-]+", " ", match_nome_prod.group(1))[5:]) 
-        else:
-            return None
-
-    def extract_product_quantity(self, text, position):
-        if position == "first": 
-            pattern = r"Totale ordine\n(\d+)\n"
-        else:
-            pattern = r'Tot\. articolo.*\n(?P<quantity>\d+)\n.*\nSKU'
-            
-        match_prod_quantity = re.search(pattern, text, re.DOTALL)
-        if match_prod_quantity:
-            return match_prod_quantity.group(1).strip()
-        else:
-            return None
-        
+    
     def extract_product_details(self, text):
         product = []
 
@@ -78,8 +47,8 @@ class Analyzer:
         nome_prod1 = self.extract_product_name(text, "first")
         quantity_prod1 = self.extract_product_quantity(text, "first")
         quantity_prod2 = self.extract_product_quantity(text, "second")
-        
-        if quantity_prod2: 
+
+        if quantity_prod2:
             nome_prod2 = self.extract_product_name(text, "second")
 
         if not quantity_prod2:
@@ -91,15 +60,49 @@ class Analyzer:
 
         return product
 
+    def extract_shipping_address(self, text):
+        pattern = r"Spedire a:\n(.*?)(?=\n)"
+        match_shipping_address = re.search(pattern, text)
+        if match_shipping_address:
+            return match_shipping_address.group(1).strip()[:22].upper()
+        else:
+            return None
+
+    def extract_product_name(self, text, position):
+        if position == "first":
+            pattern = r"Totale ordine\n\d+\n(.*?)(?=\nSKU:)"
+        else:
+            pattern = r"Tot\. articolo\n(?:.*\n)*[0-9]+\n(.*?)(?=SKU:)"
+
+        match_nome_prod = re.search(pattern, text, re.DOTALL)
+        if match_nome_prod:
+            return self.orderDistinction(
+                re.sub(r"[\s-]+", " ", match_nome_prod.group(1))[5:]
+            )
+        else:
+            return None
+
+    def extract_product_quantity(self, text, position):
+        if position == "first":
+            pattern = r"Totale ordine\n(\d+)\n"
+        else:
+            pattern = r"Tot\. articolo.*\n(?P<quantity>\d+)\n.*\nSKU"
+
+        match_prod_quantity = re.search(pattern, text, re.DOTALL)
+        if match_prod_quantity:
+            return match_prod_quantity.group(1).strip()
+        else:
+            return None
+
     def categorize_orders(self, listOrders):
         singleProducts = []
         multiProducts = []
         ordersMultiProduct = []
-        
+
         for order in listOrders:
             if len(order) > 1:
                 ordersMultiProduct.append(order)
-            elif order[0][2] != "1": 
+            elif order[0][2] != "1":
                 multiProducts.append(order)
             else:
                 singleProducts.append(order)
@@ -130,19 +133,24 @@ class Analyzer:
         # Se non ci sono parentesi tonde nella stringa, restituisci la stringa stessa
         return product_name[:max_length]
 
-
-    def add_product_name_to_pdf(self, pdf_path, listOrders):
-        with fitz.open(pdf_path) as pdf_document:
+    def add_product_name_to_pdf(self, pdf2_path, listOrders):
+        with fitz.open(pdf2_path) as pdf_document:
             # Pre-calculate all page texts
-            page_texts = [re.sub(r'\s+', ' ', page.get_text()) for page in pdf_document]
-            
+            page_texts = [re.sub(r"\s+", " ", page.get_text()) for page in pdf_document]
+
             for order in listOrders:
-                shipping_address_find = any(order[0][0] in page_text for page_text in page_texts)
+                shipping_address_find = any(
+                    order[0][0] in page_text for page_text in page_texts
+                )
                 if not shipping_address_find:
                     continue
-                
+
                 # Get the first page containing the shipping address
-                page_index = next(i for i, page_text in enumerate(page_texts) if order[0][0] in page_text)
+                page_index = next(
+                    i
+                    for i, page_text in enumerate(page_texts)
+                    if order[0][0] in page_text
+                )
                 page = pdf_document[page_index]
                 page.wrap_contents()
                 page.set_rotation(180)
@@ -156,15 +164,45 @@ class Analyzer:
 
                 if len(order) > 1:
                     for item in order:
-                        page.insert_text((x_offset, y_offset), text=item[1], fontsize=10, rotate=180, render_mode=0)
+                        page.insert_text(
+                            (x_offset, y_offset),
+                            text=item[1],
+                            fontsize=10,
+                            rotate=180,
+                            render_mode=0,
+                        )
                         if item[2] != "1":
-                            page.insert_text((x_offset - 185, y_offset), text=" --> x" + str(item[2]), fontsize=15, rotate=180, render_mode=0) 
-                        y_offset+= 10
-                elif order[0][2] != "1": 
-                    page.insert_text((x_offset, y_offset), text=order[0][1], fontsize=10, rotate=180, render_mode=0)
-                    page.insert_text((x_offset - 185, y_offset), text=" --> x" + str(order[0][2]), fontsize=15, rotate=180, render_mode=0)
+                            page.insert_text(
+                                (x_offset - 185, y_offset),
+                                text=" --> x" + str(item[2]),
+                                fontsize=15,
+                                rotate=180,
+                                render_mode=0,
+                            )
+                        y_offset += 10
+                elif order[0][2] != "1":
+                    page.insert_text(
+                        (x_offset, y_offset),
+                        text=order[0][1],
+                        fontsize=10,
+                        rotate=180,
+                        render_mode=0,
+                    )
+                    page.insert_text(
+                        (x_offset - 185, y_offset),
+                        text=" --> x" + str(order[0][2]),
+                        fontsize=15,
+                        rotate=180,
+                        render_mode=0,
+                    )
                 else:
-                    page.insert_text((x_offset, y_offset), text=order[0][1], fontsize=10, rotate=180, render_mode=0)
+                    page.insert_text(
+                        (x_offset, y_offset),
+                        text=order[0][1],
+                        fontsize=10,
+                        rotate=180,
+                        render_mode=0,
+                    )
 
             # Save the modified PDF
             pdf_document.saveIncr()
