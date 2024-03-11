@@ -239,10 +239,6 @@ def orderDistinction(product_name):
 
 
 def add_product_name_to_pdf(pdf_path, listOrders):
-    singleProducts = []
-    multiProducts = []
-    ordersMultiProduct = []
-
     with fitz.open(pdf_path) as pdf_document:
         # Pre-calculate all page texts
         page_texts = [re.sub(r'\s+', ' ', page.get_text()) for page in pdf_document]
