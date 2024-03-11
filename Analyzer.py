@@ -234,7 +234,7 @@ class Analyzer:
         singleProducts = [(productName, str(quantity)) for productName, quantity in singleProdDict.items()]
 
         # Costruisci la lista di prodotti multipli raggruppati
-        multiProducts = [('', product_name, f"x{quantity}") if count == 1 else (f"x{count}", product_name, f"x{quantity}") for (product_name, quantity), count in multipleProdDict.items()]
+        multiProducts = [(f"{count}", product_name, f"x{quantity}") for (product_name, quantity), count in multipleProdDict.items()]
 
         return singleProducts, multiProducts
 
@@ -252,7 +252,7 @@ class Analyzer:
 
         multi_table_data = [['Multi-Packaging', 'Quantità', 'Unità']]
         for order in multi_products:
-            multi_table_data.append([order[1], order[2], order[0]])
+            multi_table_data.append([order[1], order[0], order[2]])
         multi_table = self.create_table(multi_table_data)
         elements.append(multi_table)
         elements.append(Spacer(1, 0.5 * inch))
