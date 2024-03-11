@@ -10,7 +10,11 @@ class Gui:
         self.pdf1_path = ""
         self.pdf2_path = ""
         self.output_path = ""
-        self.analyzer = Analyzer()
+        self.analyzer = None
+    
+    def initialize_analyzer(self):
+        if not self.analyzer:  # Inizializza solo se non è già stato inizializzato
+            self.analyzer = Analyzer(self.pdf1_path)
 
     def avvia_interfaccia(self):
         self.root = tk.Tk()
@@ -79,8 +83,9 @@ class Gui:
             return
 
         start_time = time.time()
-
-        self.analyzer.elaborate_pdfs(self.pdf1_path, self.pdf2_path, self.output_path)
+        
+        self.initialize_analyzer()
+        self.analyzer.elaborate_pdfs(self.pdf2_path, self.output_path)
 
         elapsed_time = time.time() - start_time
         minutes = int(elapsed_time / 60)
@@ -94,7 +99,8 @@ class Gui:
             messagebox.showerror("Error", "Please fill in PDF1 field.")
             return
 
-        self.analyzer.generate_pdf(self.pdf1_path, self.output_path)
+        self.initialize_analyzer()
+        self.analyzer.generate_pdf(self.output_path)
 
         messagebox.showinfo(
             "Success", f"Tables created and saved to {self.output_path}"
