@@ -10,6 +10,24 @@ class Analyzer:
     def __init__(self):
         pass
     
+    def elaborate_pdfs(self, pdf1_path, pdf2_path, output_path):
+        listOrders = self.extract_text_from_pdf(pdf1_path)
+        
+        self.add_product_name_to_pdf(pdf2_path, listOrders)
+        
+        singleProducts, multiProducts, ordersMultiProduct = self.categorize_orders(listOrders)
+        singleProducts, multiProducts = self.group_same_products(singleProducts, multiProducts)
+        
+        self.create_pdf_with_tables(singleProducts, multiProducts, ordersMultiProduct, output_path)
+        
+    def generate_pdf(self, pdf1_path, output_path):
+        listOrders = self.extract_text_from_pdf(pdf1_path)
+        
+        singleProducts, multiProducts, ordersMultiProduct = self.categorize_orders(listOrders)
+        singleProducts, multiProducts = self.group_same_products(singleProducts, multiProducts)
+        
+        self.create_pdf_with_tables(singleProducts, multiProducts, ordersMultiProduct, output_path)
+        
     def extract_text_from_pdf(self, pdf_path):
         all_elements = []
         with fitz.open(pdf_path) as pdf_file:
