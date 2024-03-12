@@ -23,6 +23,7 @@ class Analyzer:
 
     def elaborate_pdfs(self, pdf2_path, output_path):
         self.add_product_name_to_pdf(pdf2_path, self.listOrders)
+        self.initialize_tablesMaker(output_path)
         self.tablesMaker.create_pdf_with_tables()
 
     def extract_text_from_pdf(self, pdf1_path):
