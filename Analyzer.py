@@ -77,7 +77,7 @@ class Analyzer:
         match_nome_prod = re.search(pattern, text, re.DOTALL)
         if match_nome_prod:
             return self.orderDistinction(
-                re.sub(r"[\s-]+", " ", match_nome_prod.group(1))[5:]
+                re.sub(r"[\s-]+", " ", match_nome_prod.group(1))
             )
         else:
             return None
