@@ -2,27 +2,33 @@ from TablesMaker import TablesMaker
 import fitz  # PyMuPDF
 import re
 
+
 class Analyzer:
     def __init__(self, pdf1_path):
         self.pdf1_path = pdf1_path
-        self.listOrders = self.extract_text_from_pdf(self.pdf1_path)
-        self.singleProducts, self.multiProducts, self.ordersMultiProduct = self.categorize_orders(
-            self.listOrders
+        self.list_orders = self.extract_text_from_pdf(self.pdf1_path)
+        self.single_products, self.multi_products, self.orders_multi_product = (
+            self.categorize_orders(self.list_orders)
         )
-        self.singleProducts, self.multiProducts = self.group_same_products(
-            self.singleProducts, self.multiProducts
+        self.single_products, self.multi_products = self.group_same_products(
+            self.single_products, self.multi_products
         )
         self.tablesMaker = None
-        
+
     def initialize_tablesMaker(self, output_path):
-        self.tablesMaker = TablesMaker(self.singleProducts, self.multiProducts, self.ordersMultiProduct, output_path)
-        
+        self.tablesMaker = TablesMaker(
+            self.single_products,
+            self.multi_products,
+            self.orders_multi_product,
+            output_path,
+        )
+
     def generate_pdf(self, output_path):
         self.initialize_tablesMaker(output_path)
         self.tablesMaker.create_pdf_with_tables()
 
     def elaborate_pdfs(self, pdf2_path, output_path):
-        self.add_product_name_to_pdf(pdf2_path, self.listOrders)
+        self.add_product_name_to_pdf(pdf2_path, self.list_orders)
         self.initialize_tablesMaker(output_path)
         self.tablesMaker.create_pdf_with_tables()
 
@@ -36,7 +42,7 @@ class Analyzer:
                 product_details = self.extract_product_details(page_text)
                 all_elements.append(product_details)
         return all_elements
-    
+
     def extract_product_details(self, text):
         product = []
 
@@ -73,7 +79,7 @@ class Analyzer:
 
         match_nome_prod = re.search(pattern, text, re.DOTALL)
         if match_nome_prod:
-            return self.orderDistinction(
+            return self.order_distinction(
                 re.sub(r"[\s-]+", " ", match_nome_prod.group(1))
             )
         else:
@@ -91,22 +97,22 @@ class Analyzer:
         else:
             return None
 
-    def categorize_orders(self, listOrders):
-        singleProducts = []
-        multiProducts = []
-        ordersMultiProduct = []
+    def categorize_orders(self, list_orders):
+        single_products = []
+        multi_products = []
+        orders_multi_product = []
 
-        for order in listOrders:
+        for order in list_orders:
             if len(order) > 1:
-                ordersMultiProduct.append(order)
+                orders_multi_product.append(order)
             elif order[0][2] != "1":
-                multiProducts.append(order)
+                multi_products.append(order)
             else:
-                singleProducts.append(order)
+                single_products.append(order)
 
-        return singleProducts, multiProducts, ordersMultiProduct
+        return single_products, multi_products, orders_multi_product
 
-    def orderDistinction(self, product_name):
+    def order_distinction(self, product_name):
         max_length = 40
         # Trova la posizione della parentesi tonda aperta nella stringa
         open_parenthesis_index = product_name.find("(")
@@ -130,12 +136,12 @@ class Analyzer:
         # Se non ci sono parentesi tonde nella stringa, restituisci la stringa stessa
         return product_name[:max_length]
 
-    def add_product_name_to_pdf(self, pdf2_path, listOrders):
+    def add_product_name_to_pdf(self, pdf2_path, list_orders):
         with fitz.open(pdf2_path) as pdf_document:
             # Pre-calculate all page texts
             page_texts = [re.sub(r"\s+", " ", page.get_text()) for page in pdf_document]
 
-            for order in listOrders:
+            for order in list_orders:
                 shipping_address_find = any(
                     order[0][0] in page_text for page_text in page_texts
                 )
@@ -204,33 +210,39 @@ class Analyzer:
             # Save the modified PDF
             pdf_document.saveIncr()
 
-    def group_same_products(self, singleProducts, multiProducts):
-        singleProdDict = {}
-        multipleProdDict = {}
+    def group_same_products(self, single_products, multi_products):
+        single_prod_dict = {}
+        multiple_prod_dict = {}
 
         # Raggruppa i prodotti per nome e somma le quantità
-        for item in singleProducts:
-            productName = item[0][1]
+        for item in single_products:
+            product_name = item[0][1]
             quantity = int(item[0][2])
-            if productName in singleProdDict:
-                singleProdDict[productName] += quantity
+            if product_name in single_prod_dict:
+                single_prod_dict[product_name] += quantity
             else:
-                singleProdDict[productName] = quantity
+                single_prod_dict[product_name] = quantity
 
         # Raggruppa i prodotti multipli per nome e quantità
-        for item in multiProducts:
+        for item in multi_products:
             product_name = item[0][1]
             quantity = int(item[0][2])
             key = (product_name, quantity)
-            if key in multipleProdDict:
-                multipleProdDict[key] += 1
+            if key in multiple_prod_dict:
+                multiple_prod_dict[key] += 1
             else:
-                multipleProdDict[key] = 1
+                multiple_prod_dict[key] = 1
 
         # Costruisci la lista di prodotti sommati
-        singleProducts = [(productName, str(quantity)) for productName, quantity in singleProdDict.items()]
+        single_products = [
+            (product_name, str(quantity))
+            for product_name, quantity in single_prod_dict.items()
+        ]
 
         # Costruisci la lista di prodotti multipli raggruppati
-        multiProducts = [(f"{count}", product_name, f"x{quantity}") for (product_name, quantity), count in multipleProdDict.items()]
+        multi_products = [
+            (f"{count}", product_name, f"x{quantity}")
+            for (product_name, quantity), count in multiple_prod_dict.items()
+        ]
 
-        return singleProducts, multiProducts
+        return single_products, multi_products
