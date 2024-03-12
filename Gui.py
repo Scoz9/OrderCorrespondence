@@ -13,8 +13,7 @@ class Gui:
         self.analyzer = None
     
     def initialize_analyzer(self):
-        if not self.analyzer:  # Inizializza solo se non è già stato inizializzato
-            self.analyzer = Analyzer(self.pdf1_path)
+        self.analyzer = Analyzer(self.pdf1_path)
 
     def avvia_interfaccia(self):
         self.root = tk.Tk()
