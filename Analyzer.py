@@ -51,16 +51,13 @@ class Analyzer:
         quantity_prod1 = self.extract_product_quantity(text, "first")
         quantity_prod2 = self.extract_product_quantity(text, "second")
 
-        if quantity_prod2:
-            nome_prod2 = self.extract_product_name(text, "second")
-
         if not quantity_prod2:
             product.append((shipping_address, nome_prod1, quantity_prod1))
             return product
 
+        nome_prod2 = self.extract_product_name(text, "second")
         product.append((shipping_address, nome_prod1, quantity_prod1))
         product.append((shipping_address, nome_prod2, quantity_prod2))
-
         return product
 
     def extract_shipping_address(self, text):
@@ -76,8 +73,8 @@ class Analyzer:
             pattern = r"Totale ordine\n\d+\n(.*?)(?=\nSKU:)"
         else:
             pattern = r"Tot\. articolo\n(?:.*\n)*[0-9]+\n(.*?)(?=SKU:)"
-
-        match_nome_prod = re.search(pattern, text, re.DOTALL)
+        
+        match_nome_prod = re.search(pattern, text, re.DOTALL) if re.search(pattern, text, re.DOTALL) is not None else re.search(r"Gift Options\n\d+\n(.*?)(?=\nSKU:)", text, re.DOTALL)
         if match_nome_prod:
             return self.order_distinction(
                 re.sub(r"[\s-]+", " ", match_nome_prod.group(1))
@@ -92,10 +89,14 @@ class Analyzer:
             pattern = r"Tot\. articolo.*\n(?P<quantity>\d+)\n.*\nSKU"
 
         match_prod_quantity = re.search(pattern, text, re.DOTALL)
-        if match_prod_quantity:
+        if match_prod_quantity is not None:
             return match_prod_quantity.group(1).strip()
         else:
-            return None
+            match_prod_quantity = re.search(r"Gift Options\n(\d+)\n", text, re.DOTALL) 
+            if match_prod_quantity is not None and position == "first": 
+                return match_prod_quantity.group(1).strip()
+            else:
+                return None
 
     def categorize_orders(self, list_orders):
         single_products = []
