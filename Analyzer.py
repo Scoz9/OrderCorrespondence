@@ -177,7 +177,7 @@ class Analyzer:
                         )
                         if item[2] != "1":
                             page.insert_text(
-                                (x_offset - 185, y_offset),
+                                (x_offset - 192, y_offset),
                                 text=" --> x" + str(item[2]),
                                 fontsize=15,
                                 rotate=180,
@@ -193,7 +193,7 @@ class Analyzer:
                         render_mode=0,
                     )
                     page.insert_text(
-                        (x_offset - 185, y_offset),
+                        (x_offset - 192, y_offset),
                         text=" --> x" + str(order[0][2]),
                         fontsize=15,
                         rotate=180,
