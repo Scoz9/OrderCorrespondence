@@ -41,27 +41,38 @@ class Analyzer:
 
                 product_details = self.extract_product_details(page_text)
                 all_elements.append(product_details)
+
+        all_elements = self.group_buyer_multi_orders(all_elements)
         return all_elements
 
     def extract_product_details(self, text):
         product = []
 
+        buyer_name = self.extract_buyer_name(text)
         shipping_address = self.extract_shipping_address(text)
         nome_prod1 = self.extract_product_name(text, "first")
         quantity_prod1 = self.extract_product_quantity(text, "first")
         quantity_prod2 = self.extract_product_quantity(text, "second")
 
         if not quantity_prod2:
-            product.append((shipping_address, nome_prod1, quantity_prod1))
+            product.append((buyer_name, nome_prod1, quantity_prod1, shipping_address))
             return product
 
         nome_prod2 = self.extract_product_name(text, "second")
-        product.append((shipping_address, nome_prod1, quantity_prod1))
-        product.append((shipping_address, nome_prod2, quantity_prod2))
+        product.append((buyer_name, nome_prod1, quantity_prod1, shipping_address))
+        product.append((buyer_name, nome_prod2, quantity_prod2, shipping_address))
         return product
 
-    def extract_shipping_address(self, text):
+    def extract_buyer_name(self, text):
         pattern = r"Spedire a:\n(.*?)(?=\n)"
+        match_buyer_name = re.search(pattern, text)
+        if match_buyer_name:
+            return match_buyer_name.group(1).strip()[:22].upper()
+        else:
+            return None
+
+    def extract_shipping_address(self, text):
+        pattern = r"Spedire a:(?:.*\n){2}(.*?)(?=\n)"
         match_shipping_address = re.search(pattern, text)
         if match_shipping_address:
             return match_shipping_address.group(1).strip()[:22].upper()
@@ -73,8 +84,12 @@ class Analyzer:
             pattern = r"Totale ordine\n\d+\n(.*?)(?=\nSKU:)"
         else:
             pattern = r"Tot\. articolo\n(?:.*\n)*[0-9]+\n(.*?)(?=SKU:)"
-        
-        match_nome_prod = re.search(pattern, text, re.DOTALL) if re.search(pattern, text, re.DOTALL) is not None else re.search(r"Gift Options\n\d+\n(.*?)(?=\nSKU:)", text, re.DOTALL)
+
+        match_nome_prod = (
+            re.search(pattern, text, re.DOTALL)
+            if re.search(pattern, text, re.DOTALL) is not None
+            else re.search(r"Gift Options\n\d+\n(.*?)(?=\nSKU:)", text, re.DOTALL)
+        )
         if match_nome_prod:
             return self.order_distinction(
                 re.sub(r"[\s-]+", " ", match_nome_prod.group(1))
@@ -92,8 +107,8 @@ class Analyzer:
         if match_prod_quantity is not None:
             return match_prod_quantity.group(1).strip()
         else:
-            match_prod_quantity = re.search(r"Gift Options\n(\d+)\n", text, re.DOTALL) 
-            if match_prod_quantity is not None and position == "first": 
+            match_prod_quantity = re.search(r"Gift Options\n(\d+)\n", text, re.DOTALL)
+            if match_prod_quantity is not None and position == "first":
                 return match_prod_quantity.group(1).strip()
             else:
                 return None
@@ -143,10 +158,10 @@ class Analyzer:
             page_texts = [re.sub(r"\s+", " ", page.get_text()) for page in pdf_document]
 
             for order in list_orders:
-                shipping_address_find = any(
+                buyer_name_find = any(
                     order[0][0] in page_text for page_text in page_texts
                 )
-                if not shipping_address_find:
+                if not buyer_name_find:
                     continue
 
                 # Get the first page containing the shipping address
@@ -247,3 +262,57 @@ class Analyzer:
         ]
 
         return single_products, multi_products
+
+    """
+    Raggruppa gli ordini multipli effettuati da buyer con stesso name e stesso shipping addess.
+
+    Itera attraverso list_orders e confronta ciascun elemento con gli elementi successivi.
+    Se trova una corrispondenza tra il buyer_name e lo shipping_address, combina gli ordini.
+    Nella combinazione degli ordini viene effettuato un check relativamente ai prodotti combinati nel seguente
+    itera attraverso list_orders[i] e confronta ciascun elemento con gli elementi successivi.
+    Se trova una corrispondenza tra il product_name allora unisco il product e sommo la quantita'.
+    
+    Args:
+        list_orders (list): Lista degli ordini
+        
+    Returns:
+        list: Lista degli ordini con raggruppamento buyer multi order
+    """
+
+    def group_buyer_multi_orders(self, list_orders):
+
+        i = 0
+        while i < len(list_orders):
+            order = list_orders[i]
+
+            j = i + 1
+            while j < len(list_orders):
+                item = list_orders[j]
+
+                if order[0][0] == item[0][0] and order[0][3] == item[0][3]:
+                    print("Trovato buyer multi order -> " + order[0][0] + "\n")
+
+                    """ Aggiungo ciascun elemento presente in item come tupla a list_orders[i] """
+                    for single_item in item:
+                        list_orders[i].append(tuple(single_item))
+
+                    for k, single_item in enumerate(list_orders[i]):
+                        for next_single_item in list_orders[i][k + 1 :]:
+                            # Controllo se il nome del prodotto è lo stesso
+                            if single_item[1] == next_single_item[1]:
+                                # Inserisco nella prima tupla la somma delle quantità eliminando la tupla relativa alla corrispondenza
+                                list_orders[i][k] = (
+                                    single_item[0],
+                                    single_item[1],
+                                    str(int(single_item[2]) + int(next_single_item[2])),
+                                    single_item[3],
+                                )
+                                list_orders[i].remove(next_single_item)
+
+                    del list_orders[j]
+                else:
+                    j += 1
+
+            i += 1
+
+        return list_orders
