@@ -75,7 +75,7 @@ class Analyzer:
         pattern = r"Spedire a:(?:.*\n){2}(.*?)(?=\n)"
         match_shipping_address = re.search(pattern, text)
         if match_shipping_address:
-            return match_shipping_address.group(1).strip()[:22].upper()
+            return match_shipping_address.group(1).strip()[:20].upper()
         else:
             return None
 
@@ -166,10 +166,18 @@ class Analyzer:
 
                 # Get the first page containing the shipping address
                 page_index = next(
-                    i
-                    for i, page_text in enumerate(page_texts)
-                    if order[0][0] in page_text
+                    (
+                        i
+                        for i, page_text in enumerate(page_texts)
+                        if order[0][0] in page_text and order[0][3] in page_text
+                    ),
+                    None,
                 )
+
+                if page_index is None: 
+                    print("Errore ordine: " + order[0][0] + " Indirizzo: " + order[0][3])
+                    return
+
                 page = pdf_document[page_index]
                 page.wrap_contents()
                 page.set_rotation(180)
