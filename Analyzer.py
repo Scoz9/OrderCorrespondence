@@ -10,12 +10,14 @@ class Analyzer:
         self.single_products, self.multi_products, self.orders_multi_product = (
             self.categorize_orders(self.list_orders)
         )
-        self.single_products, self.multi_products, self.orders_multi_product = self.group_same_products(
-            self.single_products, self.multi_products, self.orders_multi_product
+        self.single_products, self.multi_products, self.orders_multi_product = (
+            self.group_same_products(
+                self.single_products, self.multi_products, self.orders_multi_product
+            )
         )
         self.insertion_sort(self.single_products)
         self.insertion_sort(self.multi_products)
-        self.insertion_sort(self.orders_multi_product, 'true')
+        self.insertion_sort(self.orders_multi_product, "true")
         self.tablesMaker = None
 
     def initialize_tablesMaker(self, output_path):
@@ -52,18 +54,42 @@ class Analyzer:
         product = []
 
         buyer_name = self.extract_buyer_name(text)
-        shipping_address = self.extract_shipping_address(text)
+        shipping_address, shipping_address2 = self.extract_shipping_address(text)
         nome_prod1 = self.extract_product_name(text, "first")
         quantity_prod1 = self.extract_product_quantity(text, "first")
         quantity_prod2 = self.extract_product_quantity(text, "second")
 
         if not quantity_prod2:
-            product.append((buyer_name, nome_prod1, quantity_prod1, shipping_address))
+            product.append(
+                (
+                    buyer_name,
+                    nome_prod1,
+                    quantity_prod1,
+                    shipping_address,
+                    shipping_address2,
+                )
+            )
             return product
 
         nome_prod2 = self.extract_product_name(text, "second")
-        product.append((buyer_name, nome_prod1, quantity_prod1, shipping_address))
-        product.append((buyer_name, nome_prod2, quantity_prod2, shipping_address))
+        product.append(
+            (
+                buyer_name,
+                nome_prod1,
+                quantity_prod1,
+                shipping_address,
+                shipping_address2,
+            )
+        )
+        product.append(
+            (
+                buyer_name,
+                nome_prod2,
+                quantity_prod2,
+                shipping_address,
+                shipping_address2,
+            )
+        )
         return product
 
     def extract_buyer_name(self, text):
@@ -76,11 +102,16 @@ class Analyzer:
 
     def extract_shipping_address(self, text):
         pattern = r"Spedire a:(?:.*\n){2}(.*?)(?=\n)"
+        pattern2 = r"Spedire a:(?:.*\n){3}(.*?)(?=\n)"
         match_shipping_address = re.search(pattern, text)
+        match_shipping_address2 = re.search(pattern2, text)
         if match_shipping_address:
-            return match_shipping_address.group(1).strip()[:20].upper()
+            return (
+                match_shipping_address.group(1).strip()[:20].upper(),
+                match_shipping_address2.group(1).strip()[:20].upper(),
+            )
         else:
-            return None
+            return None, None
 
     def extract_product_name(self, text, position):
         if position == "first":
@@ -172,16 +203,14 @@ class Analyzer:
                     (
                         i
                         for i, page_text in enumerate(page_texts)
-                        if order[0][0] in page_text and order[0][3] in page_text
+                        if (order[0][0] in page_text and order[0][3] in page_text)
+                        or (order[0][0] in page_text and order[0][4] in page_text)
                     ),
                     None,
                 )
 
                 if page_index is None:
-                    print(
-                        "Errore ordine: " + order[0][0] + " Indirizzo: " + order[0][3]
-                    )
-                    return
+                    print("Errore omonimia pdf2 (Nome+indirizzo): " + order[0][0])
 
                 page = pdf_document[page_index]
                 page.wrap_contents()
@@ -239,7 +268,9 @@ class Analyzer:
             # Save the modified PDF
             pdf_document.saveIncr()
 
-    def group_same_products(self, single_products, multi_products, orders_multi_product):
+    def group_same_products(
+        self, single_products, multi_products, orders_multi_product
+    ):
         single_prod_dict = {}
         multiple_prod_dict = {}
 
@@ -273,9 +304,9 @@ class Analyzer:
             (product_name, f"{count}", f"x{quantity}")
             for (product_name, quantity), count in multiple_prod_dict.items()
         ]
-        
+
         i = 0
-        while(i < len(orders_multi_product)):
+        while i < len(orders_multi_product):
             for k, single_item in enumerate(orders_multi_product[i]):
                 for next_single_item in orders_multi_product[i][k + 1 :]:
                     # Controllo se il nome del prodotto è lo stesso
@@ -332,11 +363,11 @@ class Analyzer:
 
         return list_orders
 
-    def insertion_sort(self, arr, order_multi_prod = 'false'):
+    def insertion_sort(self, arr, order_multi_prod="false"):
         if len(arr) <= 1:
-                return arr
-        
-        if(order_multi_prod == 'false'):
+            return arr
+
+        if order_multi_prod == "false":
             for i in range(1, len(arr)):
                 key = arr[i]
                 j = i - 1
