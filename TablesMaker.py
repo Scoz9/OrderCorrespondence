@@ -25,7 +25,7 @@ class TablesMaker:
 
         multi_table_data = [["Multi-Packaging", "Quantità", "Unità"]]
         for order in self.multi_products:
-            multi_table_data.append([order[1], order[0], order[2]])
+            multi_table_data.append([order[0], order[1], order[2]])
         multi_table = self.create_table(multi_table_data)
         elements.append(multi_table)
         elements.append(Spacer(1, 0.5 * inch))
