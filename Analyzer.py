@@ -10,9 +10,12 @@ class Analyzer:
         self.single_products, self.multi_products, self.orders_multi_product = (
             self.categorize_orders(self.list_orders)
         )
-        self.single_products, self.multi_products = self.group_same_products(
-            self.single_products, self.multi_products
+        self.single_products, self.multi_products, self.orders_multi_product = self.group_same_products(
+            self.single_products, self.multi_products, self.orders_multi_product
         )
+        self.insertion_sort(self.single_products)
+        self.insertion_sort(self.multi_products)
+        self.insertion_sort(self.orders_multi_product, 'true')
         self.tablesMaker = None
 
     def initialize_tablesMaker(self, output_path):
@@ -174,8 +177,10 @@ class Analyzer:
                     None,
                 )
 
-                if page_index is None: 
-                    print("Errore ordine: " + order[0][0] + " Indirizzo: " + order[0][3])
+                if page_index is None:
+                    print(
+                        "Errore ordine: " + order[0][0] + " Indirizzo: " + order[0][3]
+                    )
                     return
 
                 page = pdf_document[page_index]
@@ -234,7 +239,7 @@ class Analyzer:
             # Save the modified PDF
             pdf_document.saveIncr()
 
-    def group_same_products(self, single_products, multi_products):
+    def group_same_products(self, single_products, multi_products, orders_multi_product):
         single_prod_dict = {}
         multiple_prod_dict = {}
 
@@ -265,11 +270,26 @@ class Analyzer:
 
         # Costruisci la lista di prodotti multipli raggruppati
         multi_products = [
-            (f"{count}", product_name, f"x{quantity}")
+            (product_name, f"{count}", f"x{quantity}")
             for (product_name, quantity), count in multiple_prod_dict.items()
         ]
-
-        return single_products, multi_products
+        
+        i = 0
+        while(i < len(orders_multi_product)):
+            for k, single_item in enumerate(orders_multi_product[i]):
+                for next_single_item in orders_multi_product[i][k + 1 :]:
+                    # Controllo se il nome del prodotto è lo stesso
+                    if single_item[1] == next_single_item[1]:
+                        # Inserisco nella prima tupla la somma delle quantità eliminando la tupla relativa alla corrispondenza
+                        orders_multi_product[i][k] = (
+                            single_item[0],
+                            single_item[1],
+                            str(int(single_item[2]) + int(next_single_item[2])),
+                            single_item[3],
+                        )
+                        orders_multi_product[i].remove(next_single_item)
+            i += 1
+        return single_products, multi_products, orders_multi_product
 
     """
     Raggruppa gli ordini multipli effettuati da buyer con stesso name e stesso shipping addess.
@@ -304,19 +324,6 @@ class Analyzer:
                     for single_item in item:
                         list_orders[i].append(tuple(single_item))
 
-                    for k, single_item in enumerate(list_orders[i]):
-                        for next_single_item in list_orders[i][k + 1 :]:
-                            # Controllo se il nome del prodotto è lo stesso
-                            if single_item[1] == next_single_item[1]:
-                                # Inserisco nella prima tupla la somma delle quantità eliminando la tupla relativa alla corrispondenza
-                                list_orders[i][k] = (
-                                    single_item[0],
-                                    single_item[1],
-                                    str(int(single_item[2]) + int(next_single_item[2])),
-                                    single_item[3],
-                                )
-                                list_orders[i].remove(next_single_item)
-
                     del list_orders[j]
                 else:
                     j += 1
@@ -324,3 +331,24 @@ class Analyzer:
             i += 1
 
         return list_orders
+
+    def insertion_sort(self, arr, order_multi_prod = 'false'):
+        if len(arr) <= 1:
+                return arr
+        
+        if(order_multi_prod == 'false'):
+            for i in range(1, len(arr)):
+                key = arr[i]
+                j = i - 1
+                while j >= 0 and int(key[1]) > int(arr[j][1]):
+                    arr[j + 1] = arr[j]
+                    j -= 1
+                arr[j + 1] = key
+        else:
+            for single_item in arr:
+                for i in range(1, len(single_item)):
+                    j = i - 1
+                    while j >= 0 and int(single_item[i][2]) > int(single_item[j][2]):
+                        single_item[j + 1] = single_item[j]
+                        j -= 1
+                    single_item[j + 1] = single_item[i]
