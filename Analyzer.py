@@ -210,58 +210,58 @@ class Analyzer:
                 )
 
                 if page_index is None:
-                    print("Errore omonimia pdf2 (Nome+indirizzo): " + order[0][0])
+                    print("Errore corrispondenza (Nome-indirizzo) pdf2: " + order[0][0])
 
                 page = pdf_document[page_index]
                 page.wrap_contents()
-                page.set_rotation(180)
+                page.set_rotation(90)
 
                 # Get the rectangle coordinates of the shipping address
                 rect = page.search_for(order[0][0])[0]
 
                 # Define offset for x and y coordinates in each quadrants
-                x_offset = 267 if 0 < rect[0] < 300 else 565
-                y_offset = 90 if 0 < rect[1] < 415 else 510
+                x_offset = 238
+                y_offset = 188
 
                 if len(order) > 1:
                     for item in order:
                         page.insert_text(
                             (x_offset, y_offset),
                             text=item[1],
-                            fontsize=10,
-                            rotate=180,
+                            fontsize=7,
+                            rotate=90,
                             render_mode=0,
                         )
                         if item[2] != "1":
                             page.insert_text(
-                                (x_offset - 192, y_offset),
+                                (x_offset, y_offset - 136),
                                 text=" --> x" + str(item[2]),
-                                fontsize=15,
-                                rotate=180,
+                                fontsize=9,
+                                rotate=90,
                                 render_mode=0,
                             )
-                        y_offset += 10
+                        x_offset -= 7
                 elif order[0][2] != "1":
                     page.insert_text(
                         (x_offset, y_offset),
                         text=order[0][1],
-                        fontsize=10,
-                        rotate=180,
+                        fontsize=7,
+                        rotate=90,
                         render_mode=0,
                     )
                     page.insert_text(
-                        (x_offset - 192, y_offset),
+                        (x_offset, y_offset - 136),
                         text=" --> x" + str(order[0][2]),
-                        fontsize=15,
-                        rotate=180,
+                        fontsize=9,
+                        rotate=90,
                         render_mode=0,
                     )
                 else:
                     page.insert_text(
                         (x_offset, y_offset),
                         text=order[0][1],
-                        fontsize=10,
-                        rotate=180,
+                        fontsize=7,
+                        rotate=90,
                         render_mode=0,
                     )
 
