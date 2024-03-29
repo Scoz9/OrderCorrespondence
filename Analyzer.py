@@ -209,8 +209,29 @@ class Analyzer:
                     None,
                 )
 
+                while page_index is None:
+                    print("No matching page found for the order: " + order[0][0] + " - " + order[0][3])
+                    choice = input("Do you want to enter the values?(y/n): ").upper()
+                    if choice != "Y":
+                        break
+                    else:
+                        buyer_name = input("Enter buyer name value: ").upper()
+                        shipping_address = input("Enter shipping address value: ").upper()
+
+                        page_index = next(
+                            (
+                                i
+                                for i, page_text in enumerate(page_texts)
+                                if (
+                                    buyer_name in page_text
+                                    and shipping_address in page_text
+                                )
+                            ),
+                            None,
+                        )
+
                 if page_index is None:
-                    print("Errore corrispondenza (Nome-indirizzo) pdf2: " + order[0][0])
+                    continue
 
                 page = pdf_document[page_index]
                 page.wrap_contents()
